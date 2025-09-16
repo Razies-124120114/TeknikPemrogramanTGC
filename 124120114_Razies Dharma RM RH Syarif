@@ -1,0 +1,35 @@
+def kalkulasi_belanja(harga_satuan, kuantitas, potongan=0):
+    """
+    Menghitung total belanja setelah diskon.
+    
+    Parameters:
+    - harga_satuan (int): Harga per barang
+    - kuantitas (int): Jumlah barang
+    - potongan (int): Diskon dalam persen (default: 0)
+    
+    Returns:
+    - int: Total harga setelah diskon
+    """
+    subtotal = harga_satuan * kuantitas
+    diskon_rupiah = subtotal * (potongan / 100)
+    total_bayar = subtotal - diskon_rupiah
+    return int(total_bayar)
+
+def ambil_input():
+    try:
+        harga = int(input(" Harga satuan barang: "))
+        jumlah = int(input(" Jumlah barang: "))
+        diskon = int(input(" Diskon (%): "))
+        return harga, jumlah, diskon
+    except ValueError:
+        print(" Masukkan angka yang valid.")
+        return None
+
+def main():
+    data = ambil_input()
+    if data:
+        total = kalkulasi_belanja(*data)
+        print(f" Total yang harus dibayar: Rp{total:,}")
+
+if __name__ == "__main__":
+    main()
