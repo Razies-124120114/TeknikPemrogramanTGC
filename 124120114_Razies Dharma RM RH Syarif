@@ -1,0 +1,33 @@
+import pandas as pd
+
+# 1. Load data dari file txt
+try:
+    df = pd.read_csv("data_seismik.txt")
+except Exception as e:
+    print(f"Error saat membaca file: {e}")
+    exit()
+
+# 2. Cek apakah kolom 'twt' ada
+if 'twt' not in df.columns:
+    print("Kolom 'twt' tidak ditemukan dalam data.")
+    exit()
+
+# 3. Hitung nilai minimum twt
+twt_min = df['twt'].min()
+
+# 4. Lakukan normalisasi dengan handling error pembagian nol
+try:
+    denominator = 600 - twt_min
+    if denominator == 0:
+        raise ZeroDivisionError("600 - twt_min menghasilkan nol.")
+    df['normalized_twt'] = (df['twt'] - twt_min) / denominator
+except ZeroDivisionError as zde:
+    print(f"Error dalam normalisasi: {zde}")
+    df['normalized_twt'] = None  # atau bisa diisi 0 atau np.nan
+
+# 5. Simpan kembali ke file ASCII (CSV)
+try:
+    df.to_csv("data_seismik_normalized.txt", index=False)
+    print("Data berhasil disimpan ke 'data_seismik_normalized.txt'")
+except Exception as e:
+    print(f"Gagal menyimpan file: {e}")
