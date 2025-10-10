@@ -1,0 +1,44 @@
+# ============================================================
+# 🌋 Challenge: Sistem Data Survey Seismik
+# ============================================================
+# Penulis  : Razies Dharma RM RH Syarif_124120114_Tugas 4
+# Proyek   : Analisis Data Seismik Lapangan TG
+# Deskripsi: Program ini menganalisis dataset seismik
+#            untuk melakukan QC (Quality Control) data
+# ============================================================
+
+import pandas as pd
+
+# Membaca data CSV
+data = pd.read_csv('data_seismik.csv')
+
+# Menampilkan beberapa data awal
+print("Data Seismik (5 baris pertama):")
+print(data.head())
+
+# 1. Menampilkan semua trace_id yang memiliki QC_flag = BAD
+bad_trace = data[data['QC_flag'] == 'BAD']
+print("\nTrace dengan QC_flag = BAD:")
+print(bad_trace[['trace_id', 'QC_flag']])
+
+# 2. Menghitung jumlah total trace dari seluruh survey
+total_trace = len(data)
+print("\nJumlah total trace dari seluruh survey:", total_trace)
+
+# 3. Mencari survey yang memiliki jumlah trace paling banyak
+survey_counts = data['survey_name'].value_counts()
+survey_terbanyak = survey_counts.idxmax()
+jumlah_terbanyak = survey_counts.max()
+
+print("\nSurvey dengan jumlah trace terbanyak:")
+print(f"{survey_terbanyak} ({jumlah_terbanyak} trace)")
+
+# 4. Membuat set berisi semua receiver unik yang ada di data
+receiver_unik = set(data['receiver'])
+print("\nReceiver unik yang terdapat dalam data:")
+print(receiver_unik)
+
+# 5. Membuat dictionary {'receiver': jumlah_trace}
+receiver_dict = data['receiver'].value_counts().to_dict()
+print("\nJumlah trace untuk setiap receiver:")
+print(receiver_dict)
