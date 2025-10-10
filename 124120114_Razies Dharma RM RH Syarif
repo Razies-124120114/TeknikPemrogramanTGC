@@ -1,0 +1,83 @@
+# ============================================================
+# 🪐 Challenge: Analisis Data Mikrogravitasi
+# Integrasi Pandas, NumPy, SciPy, dan Matplotlib
+# Penulis  : Razies Dharma RM RH Syarif_124120114
+# Proyek   : Eksplorasi Anomali Gravitasi
+# ============================================================
+
+# 📦 Import Library
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import griddata
+
+# ============================================================
+# 1️⃣ Membaca Data CSV
+# ============================================================
+
+# Ganti 'survey_gravitasi.csv' dengan path file kamu
+data = pd.read_csv('survey_gravitasi.csv')
+
+# Tampilkan 5 data teratas
+print("📊 Data awal:")
+print(data.head())
+
+# ============================================================
+# 2️⃣ Mengecek dan Membersihkan Data
+# ============================================================
+
+print("\n🔍 Info data:")
+print(data.info())
+
+# Hapus baris kosong jika ada
+data = data.dropna()
+
+# ============================================================
+# 3️⃣ Menyiapkan Data untuk Interpolasi
+# ============================================================
+
+x = data['X'].values
+y = data['Y'].values
+z = data['Anomali_Gravitasi_mGal'].values
+
+# Membuat grid teratur
+grid_x, grid_y = np.mgrid[min(x):max(x):200j, min(y):max(y):200j]
+
+# Interpolasi menggunakan metode linear
+grid_z = griddata((x, y), z, (grid_x, grid_y), method='linear')
+
+# ============================================================
+# 4️⃣ Visualisasi Peta Anomali Gravitasi
+# ============================================================
+
+plt.figure(figsize=(10, 8))
+contour = plt.contourf(grid_x, grid_y, grid_z, levels=30, cmap='seismic')
+plt.colorbar(contour, label='Anomali Gravitasi (mGal)')
+plt.scatter(x, y, c='black', s=5, alpha=0.6, label='Titik Data')
+plt.title('Peta Kontur Anomali Gravitasi Bouguer')
+plt.xlabel('Koordinat Timur (m)')
+plt.ylabel('Koordinat Utara (m)')
+plt.legend()
+plt.show()
+
+# ============================================================
+# 5️⃣ Analisis Statistik Anomali
+# ============================================================
+
+mean_anom = np.mean(z)
+max_anom = np.max(z)
+min_anom = np.min(z)
+
+print("\n📈 Statistik Anomali Gravitasi:")
+print(f"Rata-rata : {mean_anom:.2f} mGal")
+print(f"Nilai Maksimum (anomali positif) : {max_anom:.2f} mGal")
+print(f"Nilai Minimum (anomali negatif) : {min_anom:.2f} mGal")
+
+# ============================================================
+# 6️⃣ Interpretasi Geofisika Sederhana
+# ============================================================
+
+print("\n🧠 Interpretasi Awal:")
+print("- Nilai anomali positif menunjukkan kemungkinan batuan padat atau bijih logam.")
+print("- Nilai anomali negatif mengindikasikan material ringan seperti rongga atau sedimen.")
+print("- Lihat peta kontur untuk memperkirakan pola dan posisi anomali signifikan.")
