@@ -1,0 +1,165 @@
+import streamlit as st
+import segyio
+import numpy as np
+import pandas as pd
+import plotly.express as px
+
+# ====================================================
+# FUNGSI UNTUK MEMBACA DATA DAN HEADER FILE SEG-Y
+# ====================================================
+def read_segy_with_header(file_path, byte_positions, length=4, signed=True):
+    """
+    Membaca data dan header dari file SEG-Y post-stack.
+    
+    Parameter:
+        file_path (str): Path file SEG-Y.
+        byte_positions (list): Posisi byte header yang akan dibaca (1-based index).
+        length (int): Panjang byte tiap nilai header.
+        signed (bool): Menentukan apakah data bernilai signed.
+    
+    Return:
+        tuple: (data_segy, header_dataframe)
+    """
+    byte_positions = list(byte_positions)
+    with segyio.open(file_path, "r", ignore_geometry=True) as f:
+        n_traces = f.tracecount
+        n_headers = len(byte_positions)
+        header_values = np.zeros((n_traces, n_headers), dtype=np.int32)
+        trace_data = []
+
+        for i in range(n_traces):
+            header = f.header[i]
+            buffer = header.buf
+            for j, pos in enumerate(byte_positions):
+                start = pos - 1
+                raw_bytes = bytes(buffer[start:start + length])
+                header_values[i, j] = int.from_bytes(raw_bytes, byteorder="big", signed=signed)
+            trace_data.append(f.trace[i])
+
+    header_cols = [f"byte_{pos}" for pos in byte_positions]
+    header_df = pd.DataFrame(header_values, columns=header_cols)
+    return np.array(trace_data).T, header_df
+
+
+# ====================================================
+# INISIALISASI SESSION STATE STREAMLIT
+# ====================================================
+if "df_header" not in st.session_state:
+    st.session_state.df_header = None
+if "data_segy" not in st.session_state:
+    st.session_state.data_segy = None
+
+
+# ====================================================
+# ANTARMUKA UTAMA STREAMLIT
+# ====================================================
+st.title("Aplikasi Viewer SEG-Y Post-Stack")
+st.write(
+    """
+    Aplikasi ini digunakan untuk memuat file SEG-Y post-stack, 
+    membaca nilai header (CDP, CDP-X, CDP-Y), serta menampilkan data seismik dalam bentuk plot interaktif.
+    """
+)
+
+# ====================================================
+# UPLOAD FILE SEG-Y
+# ====================================================
+uploaded_file = st.file_uploader("Unggah File SEG-Y", type=["sgy", "segy"])
+
+if uploaded_file:
+    st.success("File berhasil diunggah.")
+
+    temp_file = "temp_uploaded.sgy"
+    with open(temp_file, "wb") as f:
+        f.write(uploaded_file.read())
+
+    # Input posisi byte header
+    st.subheader("Masukkan Lokasi Byte (1-based index)")
+    col1, col2, col3 = st.columns(3)
+    byte_cdp = col1.number_input("Byte CDP", value=9)
+    byte_cdp_x = col2.number_input("Byte CDP-X", value=73)
+    byte_cdp_y = col3.number_input("Byte CDP-Y", value=77)
+
+    if st.button("Muat File SEG-Y"):
+        byte_locs = [byte_cdp, byte_cdp_x, byte_cdp_y]
+        data, header_df = read_segy_with_header(temp_file, byte_locs)
+        st.session_state.data_segy = data
+        st.session_state.df_header = header_df
+        st.info("File berhasil dimuat ke memori.")
+
+
+# ====================================================
+# MENAMPILKAN HEADER DAN DATA SEG-Y
+# ====================================================
+if st.session_state.data_segy is not None:
+    with st.expander("Tampilan Header Data"):
+        st.dataframe(st.session_state.df_header)
+
+    with st.expander("Plot Data Seismik"):
+        st.write(f"Jumlah trace: {st.session_state.data_segy.shape[1]}")
+        st.sidebar.header("Pengaturan Plot")
+
+        # Pilihan colormap
+        cmap_options = {
+            "Seismic (Blue-White-Red)": [[0.0, "blue"], [0.5, "white"], [1.0, "red"]],
+            "Viridis": "viridis",
+            "Cividis": "cividis",
+            "Plasma": "plasma",
+            "Inferno": "inferno",
+            "Magma": "magma",
+            "Coolwarm": "rdbu",
+        }
+        cmap_choice = st.sidebar.selectbox("Pilih Colormap", list(cmap_options.keys()))
+
+        # Mode skala warna
+        scale_mode = st.sidebar.radio("Mode Skala Warna", ["Otomatis", "Manual"])
+        if scale_mode == "Manual":
+            vmin = st.sidebar.slider(
+                "Nilai Minimum",
+                float(np.min(st.session_state.data_segy)),
+                float(np.max(st.session_state.data_segy)),
+                float(np.min(st.session_state.data_segy))
+            )
+            vmax = st.sidebar.slider(
+                "Nilai Maksimum",
+                float(np.min(st.session_state.data_segy)),
+                float(np.max(st.session_state.data_segy)),
+                float(np.max(st.session_state.data_segy))
+            )
+        else:
+            vmin, vmax = None, None
+
+        reverse_y = st.sidebar.checkbox("Balik Sumbu Waktu (Y)", value=True)
+        trace_min = st.sidebar.number_input("Trace Awal", 0, st.session_state.data_segy.shape[1] - 1, 0)
+        trace_max = st.sidebar.number_input("Trace Akhir", 0, st.session_state.data_segy.shape[1],
+                                            min(500, st.session_state.data_segy.shape[1]))
+        save_plot = st.sidebar.checkbox("Simpan Plot Sebagai Gambar")
+
+        # Subset data
+        data_subset = st.session_state.data_segy[:, trace_min:trace_max]
+
+        if st.button("Tampilkan Plot"):
+            fig = px.imshow(
+                data_subset,
+                color_continuous_scale=cmap_options[cmap_choice],
+                aspect="auto",
+                origin="lower"
+            )
+
+            if reverse_y:
+                fig.update_yaxes(autorange="reversed")
+
+            fig.update_layout(
+                height=600,
+                xaxis_title="Trace",
+                yaxis_title="Time Sample"
+            )
+
+            if scale_mode == "Manual":
+                fig.update_traces(zmin=vmin, zmax=vmax)
+
+            st.plotly_chart(fig, use_container_width=True)
+
+            if save_plot:
+                fig.write_image("segy_plot.png")
+                st.success("Plot berhasil disimpan sebagai segy_plot.png.")
